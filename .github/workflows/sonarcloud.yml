@@ -58,7 +58,7 @@ jobs:
           dotnet sonarscanner begin `
           /k:"7853186-oss_labs_reengineering_p_s" `
           /o:"7853186-oss" `
-          /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+          /d:sonar.token="${{ 248bca09cd72d1071155059f5fa7860cc6654321 }}" `
           /d:sonar.cs.opencover.reportsPaths="**/coverage.xml" `
           /d:sonar.cpd.cs.minimumTokens=40 `
           /d:sonar.cpd.cs.minimumLines=5 `
