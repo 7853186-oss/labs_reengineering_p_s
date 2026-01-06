@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -50,6 +50,7 @@ public class UdpClientWrapper : IUdpClient
         try
         {
             _cts?.Cancel();
+            _cts?.Dispose();
             _udpClient?.Close();
             Console.WriteLine("Stopped listening for UDP messages.");
         }
@@ -64,6 +65,7 @@ public class UdpClientWrapper : IUdpClient
         try
         {
             _cts?.Cancel();
+            _cts?.Dispose();
             _udpClient?.Close();
             Console.WriteLine("Stopped listening for UDP messages.");
         }
