@@ -1,26 +1,22 @@
 using System;
-using System.IO;
-using System.Linq;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace NetSdrClientApp.Networking
 {
-
-    public class TcpClientWrapper : BaseClientWrapper, ITcpClient
+    public class TcpClientWrapper : ITcpClient, IDisposable
     {
+        private TcpClient? _client;
+        private NetworkStream? _stream;
         private readonly string _host;
         private readonly int _port;
-        private TcpClient? _tcpClient;
-        private NetworkStream? _stream;
-
- 
-
-        public bool Connected => _tcpClient != null && _tcpClient.Connected && _stream != null;
+        private CancellationTokenSource? _cts;
+        private bool _disposed;
 
         public event EventHandler<byte[]>? MessageReceived;
+
+        public bool Connected => _client?.Connected ?? false;
 
         public TcpClientWrapper(string host, int port)
         {
@@ -30,111 +26,102 @@ namespace NetSdrClientApp.Networking
 
         public void Connect()
         {
-            if (Connected)
-            {
-                Console.WriteLine($"Already connected to {_host}:{_port}");
-                return;
-            }
+            if (Connected) return;
 
-            _tcpClient = new TcpClient();
+            try 
+            {
+                _client = new TcpClient();
+                _client.Connect(_host, _port);
+                _stream = _client.GetStream();
+                _cts = new CancellationTokenSource();
 
-            try
-            {
-                
-                ResetCancellationToken(); 
-                _tcpClient.Connect(_host, _port);
-                _stream = _tcpClient.GetStream();
-                Console.WriteLine($"Connected to {_host}:{_port}");
-                _ = StartListeningAsync();
+                _ = Task.Run(() => ReceiveLoop(_cts.Token));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Failed to connect: {ex.Message}");
+                Disconnect();
+                throw;
             }
         }
 
         public void Disconnect()
         {
-            if (Connected)
+            if (_cts != null)
             {
-                
-                StopCancellationToken();
-                
-                _stream?.Close();
-                _tcpClient?.Close();
-
-                _tcpClient = null;
-                _stream = null;
-                Console.WriteLine("Disconnected.");
+                _cts.Cancel();
+                _cts.Dispose();
+                _cts = null;
             }
-            else
+
+            if (_stream != null)
             {
-                Console.WriteLine("No active connection to disconnect.");
+                _stream.Close();
+                _stream.Dispose();
+                _stream = null;
+            }
+
+            if (_client != null)
+            {
+                _client.Close();
+                _client.Dispose();
+                _client = null;
             }
         }
 
-        
-
-        
         public async Task SendMessageAsync(byte[] data)
         {
-            if (Connected && _stream != null && _stream.CanWrite)
+            if (_client == null || !Connected || _stream == null) 
             {
-                // Логування у шістнадцятковому форматі для зручності
-                Console.WriteLine($"Message sent: " + string.Join(" ", data.Select(b => b.ToString("X2"))));
-                await _stream.WriteAsync(data, 0, data.Length);
+                return; 
             }
-            else
+
+            try
             {
-                throw new InvalidOperationException("Not connected to a server.");
+                await _stream.WriteAsync(data);
+            }
+            catch (Exception)
+            {
             }
         }
 
-        
-        public async Task SendMessageAsync(string str)
+        private async Task ReceiveLoop(CancellationToken token)
         {
-            var data = Encoding.UTF8.GetBytes(str);
-            await SendMessageAsync(data);
-        }
-        
-
-        private async Task StartListeningAsync()
-        {
-            if (Connected && _stream != null && _stream.CanRead)
+            var buffer = new byte[8192];
+            while (!token.IsCancellationRequested && _stream != null && Connected)
             {
                 try
                 {
-                    Console.WriteLine($"Starting listening for incomming messages.");
+                    int bytesRead = await _stream.ReadAsync(buffer, token);
+                    if (bytesRead == 0) break;
 
+                    var receivedData = new byte[bytesRead];
+                    Array.Copy(buffer, receivedData, bytesRead);
                     
-                    while (!_cts.Token.IsCancellationRequested) 
-                    {
-                        byte[] buffer = new byte[8194];
+                    MessageReceived?.Invoke(this, receivedData);
+                }
+                catch
+                {
+                    break;
+                }
+            }
+            Disconnect();
+        }
 
-                        int bytesRead = await _stream.ReadAsync(buffer, 0, buffer.Length, _cts.Token);
-                        if (bytesRead > 0)
-                        {
-                            MessageReceived?.Invoke(this, buffer.AsSpan(0, bytesRead).ToArray());
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    //empty
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error in listening loop: {ex.Message}");
-                }
-                finally
-                {
-                    Console.WriteLine("Listener stopped.");
-                }
-            }
-            else
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+
+            if (disposing)
             {
-                throw new InvalidOperationException("Not connected to a server.");
+                Disconnect();
             }
+            _disposed = true;
         }
     }
 }
