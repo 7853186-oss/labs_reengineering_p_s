@@ -72,11 +72,7 @@ jobs:
         run: dotnet build NetSdrClient.sln -c Release --no-restore
       - name: Tests with coverage (OpenCover)
         run: |
-          dotnet test NetSdrClient.sln -c Release --no-build `
-            /p:CollectCoverage=true `
-            /p:CoverletOutputFormat=opencover `
-            /p:CoverletOutput="TestResults/coverage.xml" `
-            --logger "junit;LogFilePath=TestResults/junit.xml"
+          dotnet test NetSdrClient.sln -c Release --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
         shell: pwsh
       # 3) END: SonarScanner
       - name: SonarScanner End
