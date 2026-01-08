@@ -18,14 +18,10 @@ namespace NetSdrClientAppTests
                 .GetResult();
 
             Assert.That(result.IsSuccessful, Is.True, "UI шар (NetSdrClientApp) не повинен напряму залежати від EchoServer!");
-        }
-
-        // Правило 2: Папка Messages не повинна знати про Networking
-      
+        }     
         [Test]
         public void Messages_Should_Not_Depend_On_Networking()
         {
-            // Знаходимо всі класи в папці Messages
             var result = Types.InAssembly(typeof(NetSdrClient).Assembly)
                 .That()
                 .ResideInNamespace("NetSdrClientApp.Messages")
