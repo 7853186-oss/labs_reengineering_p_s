@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using EchoTcpServerApp.Server;
 using EchoTcpServerApp.Client;
 
-// Додаємо namespace
 namespace EchoTcpServerApp
 {
     public class Program
@@ -11,13 +10,11 @@ namespace EchoTcpServerApp
         public static async Task Main(string[] args)
         {
             EchoServer server = new EchoServer(5000);
-
-            // Start the server in a separate task
+        
             _ = Task.Run(() => server.StartAsync());
-
-            string host = "127.0.0.1"; // Target IP
-            int port = 60000;          // Target Port
-            int intervalMilliseconds = 5000; // Send every 5 seconds
+            string host = "127.0.0.1";
+            int port = 60000;         
+            int intervalMilliseconds = 5000; 
 
             using (var sender = new UdpTimedSender(host, port))
             {
@@ -26,9 +23,7 @@ namespace EchoTcpServerApp
 
                 while (Console.ReadKey(intercept: true).Key != ConsoleKey.Q)
                 {
-                    // Just wait until 'q' is pressed
                 }
-
                 sender.StopSending();
                 server.Stop();
                 Console.WriteLine("Sender stopped.");
